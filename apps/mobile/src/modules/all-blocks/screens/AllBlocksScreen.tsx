@@ -20,7 +20,7 @@ import {
 
 interface AllBlocksScreenProps {
   navigation?: {
-    navigate: (screen: string, params?: object) => void;
+    navigate: (screen: 'BlockDetail', params: { blockId: string }) => void;
   };
 }
 

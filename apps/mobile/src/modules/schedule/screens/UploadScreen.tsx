@@ -18,7 +18,7 @@ import {
 } from '@components/themed';
 import { ProgressBar } from '@components/common';
 import { uploadSchedule, downloadSampleTemplate } from '../api/scheduleApi';
-import { setBlocks, setLastUploadedAt } from '@store/slices/scheduleSlice';
+import { setBlocks, setLastUploadedAt, setLoaded } from '@store/slices/scheduleSlice';
 
 // ─── Upload Icon ──────────────────────────────────────────────────────────────
 const UploadIcon: React.FC = () => {
@@ -170,10 +170,9 @@ const UploadScreen: React.FC<UploadScreenProps> = ({ navigation }) => {
       setUploadState('success');
       setProgress(100);
 
-      // Navigate after short delay
-      setTimeout(() => {
-        navigation?.replace('Main');
-      }, 800);
+      // Redux isLoaded = true → AppNavigator auto-switches to MainTabs
+      // No explicit navigation needed — conditional render handles it
+      dispatch(setLoaded(true));
 
     } catch (err: unknown) {
       if (isErrorWithCode(err) && err.code === errorCodes.OPERATION_CANCELED) {
@@ -189,8 +188,9 @@ const UploadScreen: React.FC<UploadScreenProps> = ({ navigation }) => {
   const handleDownloadTemplate = async () => {
     try {
       await downloadSampleTemplate();
-    } catch {
-      Alert.alert('Error', 'Could not open template URL');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      Alert.alert('Error', `Could not download template: ${msg}`);
     }
   };
 

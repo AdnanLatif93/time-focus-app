@@ -5,24 +5,26 @@ import { store } from '@store/index';
 import { ThemeProvider } from '@theme/ThemeProvider';
 import AppNavigator from '@navigation/AppNavigator';
 
+// ─── Bootstrap — starts background services ───────────────────────────────────
 function AppBootstrap(): React.JSX.Element {
   useEffect(() => {
-    const initServices = async () => {
+    (async () => {
       try {
         const { createNotificationChannel } = await import('./src/widget/WidgetNotification');
-        const { BlockTimer } = await import('./src/timer/BlockTimer');
+        const { BlockTimer }                = await import('./src/timer/BlockTimer');
         await createNotificationChannel();
         BlockTimer.start();
       } catch (err) {
-        console.warn('[App] Widget/Timer init failed:', err);
+        console.warn('[App] Background services init failed:', err);
       }
-    };
-    initServices();
+    })();
   }, []);
 
   return <AppNavigator />;
 }
 
+// ─── Root — provider order ────────────────────────────────────────────────────
+// SafeAreaProvider → ThemeProvider → Redux Provider → NavigationContainer (inside AppNavigator)
 export default function App(): React.JSX.Element {
   return (
     <SafeAreaProvider>

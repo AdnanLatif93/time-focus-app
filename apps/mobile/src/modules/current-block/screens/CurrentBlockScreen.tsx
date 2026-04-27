@@ -101,7 +101,13 @@ const LiveClock: React.FC = () => {
 };
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
-const CurrentBlockScreen: React.FC = () => {
+interface CurrentBlockScreenProps {
+  navigation?: {
+    navigate: (screen: 'AllBlocks') => void;
+  };
+}
+
+const CurrentBlockScreen: React.FC<CurrentBlockScreenProps> = ({ navigation }) => {
   const { currentBlock, nextBlock, isLoading, error, refetch } = useCurrentBlock();
 
   const styles = useStyles((t) => ({
@@ -213,6 +219,7 @@ const CurrentBlockScreen: React.FC = () => {
           blockName={nextBlock.blockName}
           startTime={nextBlock.startTime}
           startsInMinutes={nextBlock.startsInMinutes}
+          onPress={() => navigation?.navigate('AllBlocks')}
         />
       )}
     </SafeAreaView>

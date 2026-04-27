@@ -1,16 +1,16 @@
-import { api } from '@services/api';
+import { api, BASE_URL } from '@services/api';
 import { UploadResponse } from '@/types';
 
 export interface DocumentPickerResult {
-  uri:      string;
-  name:     string;
-  type:     string;
-  size?:    number;
+  uri:   string;
+  name:  string;
+  type:  string;
+  size?: number;
 }
 
 // POST multipart/form-data to /api/upload
 export const uploadSchedule = (
-  file: DocumentPickerResult,
+  file:        DocumentPickerResult,
   onProgress?: (percent: number) => void
 ): Promise<UploadResponse> => {
   const formData = new FormData();
@@ -24,15 +24,16 @@ export const uploadSchedule = (
   return api.upload('/upload', formData, onProgress) as Promise<UploadResponse>;
 };
 
-// GET /api/sample-template — triggers download/share
+// Download sample template
+// Opens the backend-served static .xlsx file in the device browser
+// Backend serves it from apps/backend/src/assets/sample-template.xlsx
+// No native modules needed — pure Linking
 export const downloadSampleTemplate = async (): Promise<void> => {
-  // Opens the template URL in the device browser / share sheet
   const { Linking } = await import('react-native');
-  const url = `${(await import('@services/api')).BASE_URL}/sample-template`;
-  const supported = await Linking.canOpenURL(url);
-  if (supported) {
-    await Linking.openURL(url);
-  } else {
-    throw new Error('Cannot open template URL');
-  }
+
+  // Backend serves the file at this URL
+  // User's browser will download/open it automatically
+  const url = `${BASE_URL}/upload/sample-template`;
+
+  await Linking.openURL(url);
 };

@@ -1,7 +1,7 @@
 // Base API service
 // 10.0.2.2 = localhost for Android emulator
 // Change to your machine's LAN IP for physical device (e.g. 192.168.1.x)
-export const BASE_URL = 'http://10.0.2.2:5000/api';
+export const BASE_URL = 'http://10.20.22.178:5000/api';
 
 export const api = {
   get: async (endpoint: string) => {

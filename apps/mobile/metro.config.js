@@ -8,12 +8,12 @@ const config = {
   projectRoot,
   watchFolders: [workspaceRoot],
   resolver: {
-    // apps/mobile/node_modules FIRST — prevents workspace hoisting issues
+    // xlsx as a static asset
+    assetExts: [...(require('@react-native/metro-config').getDefaultConfig(__dirname).resolver?.assetExts ?? []), 'xlsx'],
     nodeModulesPaths: [
       path.resolve(projectRoot, 'node_modules'),
       path.resolve(workspaceRoot, 'node_modules'),
     ],
-    // Force critical packages to resolve from local node_modules
     extraNodeModules: new Proxy(
       {
         'jest-worker':  path.resolve(projectRoot, 'node_modules/jest-worker'),

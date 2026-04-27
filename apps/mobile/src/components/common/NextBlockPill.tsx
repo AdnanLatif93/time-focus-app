@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, ViewStyle, StyleProp } from 'react-native';
+import { View, ViewStyle, StyleProp, TouchableOpacity } from 'react-native';
 import useStyles from '@hooks/useStyles';
 import { ThemedText } from '@components/themed';
 import TimeDisplay from './TimeDisplay';
@@ -8,6 +8,7 @@ interface NextBlockPillProps {
   blockName:        string;
   startTime:        string;
   startsInMinutes:  number;
+  onPress?:         () => void;
   style?:           StyleProp<ViewStyle>;
 }
 
@@ -15,6 +16,7 @@ const NextBlockPill: React.FC<NextBlockPillProps> = ({
   blockName,
   startTime,
   startsInMinutes,
+  onPress,
   style,
 }) => {
   const styles = useStyles((theme) => ({
@@ -51,7 +53,11 @@ const NextBlockPill: React.FC<NextBlockPillProps> = ({
     : `${startsInMinutes}m`;
 
   return (
-    <View style={[styles.pill, style]}>
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={onPress ? 0.75 : 1}
+      style={[styles.pill, style]}
+    >
       {/* "Up Next" label */}
       <ThemedText variant="tiny" color="muted">Up Next</ThemedText>
 
@@ -70,7 +76,7 @@ const NextBlockPill: React.FC<NextBlockPillProps> = ({
       <View style={styles.minutesWrapper}>
         <ThemedText variant="tiny" color="brand">{minuteLabel}</ThemedText>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 };
 
