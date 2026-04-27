@@ -1,12 +1,21 @@
 const express = require('express');
-const upload = require('../middlewares/multer.middleware');
-const { uploadFile, downloadReport } = require('../controllers/upload.controller');
-// const authMiddleware = require('../middlewares/auth.middleware');
+const path    = require('path');
+const upload  = require('../middlewares/multer.middleware');
+const { uploadFile } = require('../controllers/upload.controller');
 
 const router = express.Router();
 
-// router.use(authMiddleware);
+// POST /api/upload — multipart .xlsx upload
 router.post('/', upload.single('file'), uploadFile);
-router.get('/report', downloadReport);
+
+// GET /api/upload/sample-template — download sample .xlsx
+router.get('/sample-template', (req, res) => {
+  const filePath = path.resolve(__dirname, '../assets/sample-template.xlsx');
+  res.download(filePath, 'focusday-sample-template.xlsx', (err) => {
+    if (err) {
+      res.status(404).json({ success: false, message: 'Template file not found' });
+    }
+  });
+});
 
 module.exports = router;

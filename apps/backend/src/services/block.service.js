@@ -1,99 +1,129 @@
 const RoutineSheet = require('../models/RoutineSheet');
 
-// Convert "HH:MM" string to total minutes since midnight
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 const timeToMinutes = (timeStr) => {
-  if (!timeStr) return null;
+  if (!timeStr) return 0;
   const clean = String(timeStr).trim();
   const [hh, mm] = clean.split(':').map(Number);
-  if (isNaN(hh) || isNaN(mm)) return null;
+  if (isNaN(hh) || isNaN(mm)) return 0;
   return hh * 60 + mm;
 };
 
-// Get current time in minutes since midnight (server local time)
 const nowInMinutes = () => {
   const now = new Date();
   return now.getHours() * 60 + now.getMinutes();
 };
 
-// Flatten all sheets into a single sorted list of blocks
-// Each block = one row enriched with its sheetName and sheetId
-const getAllBlocksSorted = async () => {
-  const sheets = await RoutineSheet.find().lean();
+// Map a RoutineSheet document → TimeBlock shape expected by mobile
+// Each sheet = one TimeBlock; rows = tasks array
+const sheetToTimeBlock = (sheet, index) => {
+  const rows = sheet.rows ?? [];
 
-  const blocks = [];
+  // First row drives block-level fields (blockName, startTime, endTime, reflection)
+  const first = rows[0] ?? {};
 
-  for (const sheet of sheets) {
-    for (const row of sheet.rows) {
-      const startMins = timeToMinutes(row.startTime);
-      const endMins   = timeToMinutes(row.endTime);
+  const startTime = first.startTime ?? '';
+  const endTime   = first.endTime   ?? '';
+  const startMins = timeToMinutes(startTime);
+  const endMins   = timeToMinutes(endTime);
+  const now       = nowInMinutes();
 
-      blocks.push({
-        sheetId:            sheet._id,
-        sheetName:          sheet.sheetName,
-        blockName:          row.blockName,
-        startTime:          row.startTime,
-        endTime:            row.endTime,
-        startMins,          // internal — used for sorting/comparison
-        endMins,            // internal — used for sorting/comparison
-        reflectionQuestion: row.reflectionQuestion,
-        activity:           row.activity,
-        category:           row.category,
-        day:                row.day,
-        note:               row.note,
-      });
-    }
-  }
+  // Progress percent
+  const total    = endMins - startMins;
+  const elapsed  = Math.max(0, now - startMins);
+  const progressPercent = total > 0
+    ? Math.min(100, Math.round((elapsed / total) * 100))
+    : 0;
 
-  // Sort by startTime ascending
-  blocks.sort((a, b) => (a.startMins ?? 0) - (b.startMins ?? 0));
+  // Time remaining
+  const timeRemainingMinutes = Math.max(0, endMins - now);
 
-  return blocks;
+  // Tasks — every row becomes a task
+  const tasks = rows.map((row) => ({
+    activity: row.activity  ?? '',
+    category: normCategory(row.category),
+    dayType:  normDay(row.day),
+    note:     row.note      ?? '',
+  }));
+
+  return {
+    _id:                  sheet._id.toString(),
+    sheetName:            sheet.sheetName ?? '',
+    blockName:            first.blockName ?? sheet.sheetName ?? '',
+    startTime,
+    endTime,
+    startMinutes:         startMins,
+    endMinutes:           endMins,
+    order:                index,
+    reflectionQuestion:   first.reflectionQuestion ?? '',
+    tasks,
+    progressPercent,
+    timeRemainingMinutes,
+    uploadedFile:         sheet.uploadedFile ?? '',
+    createdAt:            sheet.createdAt,
+  };
 };
 
-// Strip internal minute fields before sending to client
-const sanitize = (block) => {
-  if (!block) return null;
-  const { startMins, endMins, ...rest } = block;
-  return rest;
+// Normalize category string → 'jism' | 'rooh' | 'dimag' | 'ALL'
+const normCategory = (cat) => {
+  const c = String(cat ?? '').toLowerCase().trim();
+  if (c === 'body'  || c === 'jism')  return 'jism';
+  if (c === 'soul'  || c === 'rooh')  return 'rooh';
+  if (c === 'mind'  || c === 'dimag') return 'dimag';
+  return 'ALL';
+};
+
+// Normalize day string → DayType
+const VALID_DAYS = ['MON','TUE','WED','THU','FRI','SAT','SUN'];
+const normDay = (day) => {
+  const d = String(day ?? '').toUpperCase().trim();
+  if (VALID_DAYS.includes(d)) return d;
+  return 'ALL';
 };
 
 // ─── Service Methods ──────────────────────────────────────────────────────────
 
-// GET /api/blocks — all sheets with their rows
+// GET /api/blocks — all TimeBlocks sorted by startTime
 exports.getAllBlocks = async () => {
   const sheets = await RoutineSheet.find().lean();
-  return sheets;
+  const blocks = sheets.map(sheetToTimeBlock);
+  blocks.sort((a, b) => a.startMinutes - b.startMinutes);
+  return blocks;
 };
 
-// GET /api/block/:id — one sheet by its _id
+// GET /api/blocks/:id — single TimeBlock by sheet _id
 exports.getBlockById = async (id) => {
   const sheet = await RoutineSheet.findById(id).lean();
   if (!sheet) throw new Error('Block not found');
-  return sheet;
+  return sheetToTimeBlock(sheet, 0);
 };
 
-// GET /api/current-block — block whose startTime <= now < endTime
+// GET /api/blocks/current-block — block active right now
 exports.getCurrentBlock = async () => {
-  const blocks = await getAllBlocksSorted();
+  const blocks = await exports.getAllBlocks();
   const now    = nowInMinutes();
 
   const current = blocks.find(
-    (b) => b.startMins !== null && b.endMins !== null &&
-           now >= b.startMins && now < b.endMins
+    (b) => now >= b.startMinutes && now < b.endMinutes
   );
 
-  return sanitize(current) ?? null;
+  if (!current) return null;
+
+  // Filter today's tasks
+  const DAY_CODES = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+  const todayCode = DAY_CODES[new Date().getDay()];
+  const todayTasks = current.tasks.filter(
+    (t) => t.dayType === 'ALL' || t.dayType === todayCode
+  );
+
+  return { ...current, todayTasks };
 };
 
-// GET /api/next-block — block that starts after the current one
+// GET /api/blocks/next-block — first block starting after now
 exports.getNextBlock = async () => {
-  const blocks = await getAllBlocksSorted();
+  const blocks = await exports.getAllBlocks();
   const now    = nowInMinutes();
 
-  // Find the first block whose startTime is strictly in the future
-  const next = blocks.find(
-    (b) => b.startMins !== null && b.startMins > now
-  );
-
-  return sanitize(next) ?? null;
+  return blocks.find((b) => b.startMinutes > now) ?? null;
 };

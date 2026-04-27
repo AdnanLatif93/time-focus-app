@@ -1,45 +1,36 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
+import React, { useEffect } from 'react';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { Provider } from 'react-redux';
+import { store } from '@store/index';
+import { ThemeProvider } from '@theme/ThemeProvider';
+import AppNavigator from '@navigation/AppNavigator';
 
-import { NewAppScreen } from '@react-native/new-app-screen';
-import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
-import {
-  SafeAreaProvider,
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
+function AppBootstrap(): React.JSX.Element {
+  useEffect(() => {
+    const initServices = async () => {
+      try {
+        const { createNotificationChannel } = await import('./src/widget/WidgetNotification');
+        const { BlockTimer } = await import('./src/timer/BlockTimer');
+        await createNotificationChannel();
+        BlockTimer.start();
+      } catch (err) {
+        console.warn('[App] Widget/Timer init failed:', err);
+      }
+    };
+    initServices();
+  }, []);
 
-function App() {
-  const isDarkMode = useColorScheme() === 'dark';
+  return <AppNavigator />;
+}
 
+export default function App(): React.JSX.Element {
   return (
     <SafeAreaProvider>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <AppContent />
+      <Provider store={store}>
+        <ThemeProvider>
+          <AppBootstrap />
+        </ThemeProvider>
+      </Provider>
     </SafeAreaProvider>
   );
 }
-
-function AppContent() {
-  const safeAreaInsets = useSafeAreaInsets();
-
-  return (
-    <View style={styles.container}>
-      <NewAppScreen
-        templateFileName="App.tsx"
-        safeAreaInsets={safeAreaInsets}
-      />
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-});
-
-export default App;
